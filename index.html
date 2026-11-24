@@ -1,0 +1,2101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ERP Embotelladora Salvietti S.A. — Planta Sucre</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SDK de Firebase (Compat) para Cloud Firestore en tiempo real -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+
+    /* Fondo / marca de agua en cada módulo */
+    .module-watermark-container {
+      position: relative;
+      isolation: isolate;
+    }
+    .module-watermark-bg {
+      position: fixed;
+      inset: 0;
+      left: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.06;
+    }
+    @media (min-width: 768px) {
+      .module-watermark-bg {
+        left: 16rem;
+      }
+    }
+    .module-watermark-bg img {
+      width: min(460px, 65vw);
+      height: auto;
+      object-fit: contain;
+    }
+
+    /* Fondo / marca de agua en impresiones */
+    #print-area {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+    }
+    .print-watermark-bg {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.08;
+    }
+    .print-watermark-bg img {
+      width: 380px;
+      height: auto;
+      object-fit: contain;
+    }
+    .print-content-layer {
+      position: relative;
+      z-index: 1;
+    }
+
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+      #print-area, #print-area * {
+        visibility: visible !important;
+      }
+      #print-area {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 15px !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        height: auto !important;
+      }
+      .print-watermark-bg {
+        position: fixed !important;
+        inset: 0 !important;
+        opacity: 0.09 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+      }
+      th, td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 6px 8px !important;
+        font-size: 11px !important;
+      }
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="antialiased selection:bg-emerald-600 selection:text-white">
+
+  <!-- NOTIFICACIONES TOAST -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- PANTALLA DE INICIO DE SESIÓN -->
+  <div id="login-screen" class="min-h-screen flex items-center justify-center bg-slate-900 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden grid grid-cols-1 md:grid-cols-2">
+      <!-- Panel Izquierdo Corporativo -->
+      <div class="relative bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white p-8 flex flex-col justify-between overflow-hidden">
+        <!-- Marca de agua en login -->
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+          <img data-salvietti-logo alt="Fondo Salvietti" class="w-72 h-auto object-contain" />
+        </div>
+
+        <div class="relative z-10">
+          <div class="flex items-center gap-3 mb-6">
+            <img data-salvietti-logo alt="Logo Salvietti" class="w-16 h-12 object-contain shrink-0 drop-shadow-md" />
+            <div>
+              <h1 class="font-bold text-lg tracking-tight">EMBOTELLADORA SALVIETTI</h1>
+              <p class="text-xs text-emerald-400 font-medium">Planta Industrial Sucre • Bolivia</p>
+            </div>
+          </div>
+          <h2 class="text-2xl font-bold leading-snug mb-3">Sistema de Gestión Empresarial (ERP)</h2>
+          <p class="text-slate-300 text-sm leading-relaxed">
+            Control integral de inventarios, movimientos de almacén, facturación comercial, historial de distribuidores, asistencia y planillas de personal, y auditoría operativa.
+          </p>
+        </div>
+
+        <div class="relative z-10 mt-8 bg-slate-800/80 border border-slate-700 rounded-xl p-4">
+          <p class="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2">Cuentas de Prueba Disponibles</p>
+          <div class="space-y-2 text-xs text-slate-300">
+            <div class="flex justify-between items-center border-b border-slate-700/70 pb-1.5">
+              <span><strong>Admin:</strong> admin@salvietti.bo</span>
+              <code class="bg-slate-900 px-2 py-0.5 rounded text-emerald-300">admin123</code>
+            </div>
+            <div class="flex justify-between items-center border-b border-slate-700/70 pb-1.5">
+              <span><strong>Almacén:</strong> almacen@salvietti.bo</span>
+              <code class="bg-slate-900 px-2 py-0.5 rounded text-emerald-300">almacen123</code>
+            </div>
+            <div class="flex justify-between items-center">
+              <span><strong>Ventas:</strong> ventas@salvietti.bo</span>
+              <code class="bg-slate-900 px-2 py-0.5 rounded text-emerald-300">ventas123</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formulario de Login -->
+      <div class="p-8 flex flex-col justify-center">
+        <div class="mb-6">
+          <h3 class="text-xl font-bold text-slate-900">Iniciar Sesión</h3>
+          <p class="text-sm text-slate-500">Ingresa tus credenciales institucionales para continuar</p>
+        </div>
+
+        <form id="login-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Correo Electrónico</label>
+            <input type="email" id="login-email" required value="admin@salvietti.bo"
+              class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Contraseña</label>
+            <input type="password" id="login-password" required value="admin123"
+              class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent" />
+          </div>
+
+          <div class="flex flex-wrap gap-2 pt-1">
+            <button type="button" onclick="fillLogin('admin@salvietti.bo', 'admin123')"
+              class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md font-medium transition">
+              Usar Admin
+            </button>
+            <button type="button" onclick="fillLogin('almacen@salvietti.bo', 'almacen123')"
+              class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md font-medium transition">
+              Usar Almacenero
+            </button>
+            <button type="button" onclick="fillLogin('ventas@salvietti.bo', 'ventas123')"
+              class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md font-medium transition">
+              Usar Vendedor
+            </button>
+          </div>
+
+          <button type="submit"
+            class="w-full bg-slate-900 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-sm transition shadow-md flex items-center justify-center gap-2 mt-2">
+            <i data-lucide="log-in" class="w-4 h-4"></i>
+            Ingresar al Sistema
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- APLICACIÓN PRINCIPAL ERP -->
+  <div id="app-shell" class="hidden min-h-screen flex flex-col md:flex-row">
+    <!-- SIDEBAR -->
+    <aside class="w-full md:w-64 bg-slate-950 text-slate-300 flex flex-col justify-between shrink-0 relative z-20">
+      <div>
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <img data-salvietti-logo alt="Logo Salvietti" class="w-12 h-9 object-contain shrink-0" />
+            <div>
+              <span class="block text-sm font-bold text-white tracking-wide">SALVIETTI ERP</span>
+              <span class="block text-[11px] text-emerald-400">Sucre • Chuquisaca</span>
+            </div>
+          </div>
+        </div>
+
+        <nav id="sidebar-nav" class="p-3 space-y-1">
+          <button data-tab="dashboard" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition bg-emerald-600 text-white">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+            Dashboard General
+          </button>
+          <button data-tab="almacen" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition hover:bg-slate-800/80 text-slate-300">
+            <i data-lucide="warehouse" class="w-4 h-4"></i>
+            Almacén e Inventario
+            <span id="badge-stock-critico" class="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+          </button>
+          <button data-tab="ventas" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition hover:bg-slate-800/80 text-slate-300">
+            <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+            Ventas y Clientes
+          </button>
+          <button data-tab="planilla" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition hover:bg-slate-800/80 text-slate-300">
+            <i data-lucide="banknote" class="w-4 h-4"></i>
+            Planilla y Asistencia
+          </button>
+          <button data-tab="usuarios" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition hover:bg-slate-800/80 text-slate-300">
+            <i data-lucide="users" class="w-4 h-4"></i>
+            Usuarios y Roles
+          </button>
+          <button data-tab="auditoria" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition hover:bg-slate-800/80 text-slate-300">
+            <i data-lucide="shield-check" class="w-4 h-4"></i>
+            Auditoría del Sistema
+          </button>
+        </nav>
+      </div>
+
+      <!-- Perfil Usuario Activo -->
+      <div class="p-4 border-t border-slate-800 bg-slate-900/60">
+        <div class="flex items-center gap-3 mb-3">
+          <div id="user-avatar" class="w-9 h-9 rounded-full bg-slate-700 text-white font-semibold flex items-center justify-center text-sm">
+            AD
+          </div>
+          <div class="overflow-hidden">
+            <p id="user-name-display" class="text-xs font-semibold text-white truncate">Usuario</p>
+            <p id="user-role-display" class="text-[11px] text-emerald-400 font-medium">Rol</p>
+          </div>
+        </div>
+        <button onclick="logout()" class="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-red-600/90 text-slate-200 hover:text-white text-xs font-medium py-2 rounded-lg transition">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          Cerrar Sesión
+        </button>
+      </div>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <div class="flex-1 flex flex-col min-w-0 module-watermark-container">
+      <!-- LOGO DE FONDO EN TODOS LOS MÓDULOS -->
+      <div class="module-watermark-bg" aria-hidden="true">
+        <img data-salvietti-logo alt="" />
+      </div>
+
+      <header class="bg-white/95 backdrop-blur-xs border-b border-slate-200 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-20">
+        <div class="flex items-center gap-3">
+          <img data-salvietti-logo alt="Salvietti" class="w-11 h-8 object-contain shrink-0" />
+          <div>
+            <h2 id="page-title" class="text-lg font-bold text-slate-900">Dashboard Ejecutivo</h2>
+            <p id="page-subtitle" class="text-xs text-slate-500">Resumen operativo en tiempo real — Planta Sucre</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-lg border border-emerald-200">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Firestore Cloud
+          </span>
+          <span id="current-date-badge" class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200">
+            <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span></span>
+          </span>
+        </div>
+      </header>
+
+      <main class="p-6 flex-1 space-y-6 relative z-10">
+
+        <!-- ==================== 1. DASHBOARD ==================== -->
+        <section id="tab-dashboard" class="tab-content space-y-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-slate-500 uppercase">Ventas Totales</span>
+                <div class="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><i data-lucide="trending-up" class="w-4 h-4"></i></div>
+              </div>
+              <p id="kpi-ventas" class="text-2xl font-bold text-slate-900">Bs. 0.00</p>
+              <p id="kpi-ventas-count" class="text-xs text-slate-500 mt-1">0 pedidos registrados</p>
+            </div>
+
+            <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-slate-500 uppercase">Alertas Stock Crítico</span>
+                <div class="p-2 bg-red-50 text-red-600 rounded-lg"><i data-lucide="alert-triangle" class="w-4 h-4"></i></div>
+              </div>
+              <p id="kpi-stock-critico" class="text-2xl font-bold text-red-600">0</p>
+              <p class="text-xs text-slate-500 mt-1">Productos bajo mínimo (550-2.500)</p>
+            </div>
+
+            <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-slate-500 uppercase">Planilla Mensual Neta</span>
+                <div class="p-2 bg-blue-50 text-blue-600 rounded-lg"><i data-lucide="wallet" class="w-4 h-4"></i></div>
+              </div>
+              <p id="kpi-planilla" class="text-2xl font-bold text-slate-900">Bs. 0.00</p>
+              <p id="kpi-planilla-pendiente" class="text-xs text-slate-500 mt-1">0 pagos pendientes</p>
+            </div>
+
+            <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-slate-500 uppercase">Usuarios Activos</span>
+                <div class="p-2 bg-slate-100 text-slate-700 rounded-lg"><i data-lucide="user-check" class="w-4 h-4"></i></div>
+              </div>
+              <p id="kpi-usuarios" class="text-2xl font-bold text-slate-900">0</p>
+              <p class="text-xs text-slate-500 mt-1">Cuentas habilitadas en sistema</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 class="text-sm font-bold text-slate-800 mb-4">Stock Actual vs. Stock Mínimo Configurado</h3>
+              <div class="h-64">
+                <canvas id="chart-stock"></canvas>
+              </div>
+            </div>
+            <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 class="text-sm font-bold text-slate-800 mb-4">Ingresos por Línea de Producto (Bs.)</h3>
+              <div class="h-64">
+                <canvas id="chart-ventas"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-slate-800">Alertas de Reposición Inmediata</h3>
+                <button onclick="switchTab('almacen')" class="text-xs text-emerald-700 font-semibold hover:underline">Ir a Almacén →</button>
+              </div>
+              <div id="dashboard-alertas-list" class="space-y-2"></div>
+            </div>
+
+            <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-slate-800">Actividad Reciente de Auditoría</h3>
+                <button onclick="switchTab('auditoria')" class="text-xs text-emerald-700 font-semibold hover:underline">Ver Bitácora →</button>
+              </div>
+              <div id="dashboard-auditoria-list" class="space-y-2"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 2. ALMACÉN E INVENTARIO ==================== -->
+        <section id="tab-almacen" class="tab-content hidden space-y-6">
+          <div id="almacen-alert-banner" class="hidden bg-red-50/95 border-l-4 border-red-600 p-4 rounded-r-xl flex items-start gap-3">
+            <i data-lucide="alert-octagon" class="w-5 h-5 text-red-600 shrink-0 mt-0.5"></i>
+            <div>
+              <h4 class="text-sm font-bold text-red-800">Alerta de Stock Crítico Detectada</h4>
+              <p id="almacen-alert-text" class="text-xs text-red-700 mt-0.5"></p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm h-fit">
+              <h3 class="text-sm font-bold text-slate-900 mb-1">Registrar Entrada / Salida</h3>
+              <p class="text-xs text-slate-500 mb-4">Actualiza existencias y genera registro Kardex</p>
+              <form id="form-movimiento" class="space-y-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Producto Salvietti</label>
+                  <select id="mov-producto" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"></select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Tipo</label>
+                    <select id="mov-tipo" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white">
+                      <option value="ENTRADA">Entrada (+)</option>
+                      <option value="SALIDA">Salida (-)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Cantidad (Unid.)</label>
+                    <input type="number" id="mov-cantidad" min="1" required placeholder="Ej. 300"
+                      class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Motivo / Documento Ref.</label>
+                  <input type="text" id="mov-motivo" required placeholder="Ej. Lote Producción #402 / Despacho"
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                </div>
+                <button type="submit" class="w-full bg-slate-900 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2">
+                  <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+                  Registrar Movimiento
+                </button>
+              </form>
+            </div>
+
+            <div class="lg:col-span-2 bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-900">Inventario Actual y Stock Mínimo (550 – 2.500 unid.)</h3>
+                  <p class="text-xs text-slate-500">Configura el umbral mínimo permitido por política de planta</p>
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase">
+                      <th class="py-2.5 px-3">Código</th>
+                      <th class="py-2.5 px-3">Producto</th>
+                      <th class="py-2.5 px-3">Precio (Bs.)</th>
+                      <th class="py-2.5 px-3">Stock Actual</th>
+                      <th class="py-2.5 px-3">Stock Mínimo</th>
+                      <th class="py-2.5 px-3">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-inventario" class="divide-y divide-slate-100 text-sm"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Kardex — Registro Detallado de Entradas y Salidas</h3>
+                <p class="text-xs text-slate-500">Historial auditable de movimientos físicos de almacén</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <select id="filtro-kardex-tipo" onchange="renderAlmacen()" class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium bg-white">
+                  <option value="TODOS">Todos los movimientos</option>
+                  <option value="ENTRADA">Solo Entradas</option>
+                  <option value="SALIDA">Solo Salidas</option>
+                </select>
+                <button onclick="abrirVistaPreviaReporte('kardex')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
+                  <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                  Imprimir Kardex Oficial
+                </button>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase">
+                    <th class="py-2.5 px-3">Fecha y Hora</th>
+                    <th class="py-2.5 px-3">Tipo</th>
+                    <th class="py-2.5 px-3">Producto</th>
+                    <th class="py-2.5 px-3">Cantidad</th>
+                    <th class="py-2.5 px-3">Motivo / Referencia</th>
+                    <th class="py-2.5 px-3">Responsable</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-kardex" class="divide-y divide-slate-100 text-sm"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 3. VENTAS Y CLIENTES ==================== -->
+        <section id="tab-ventas" class="tab-content hidden space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="space-y-6 h-fit">
+              <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-900 mb-1">Registrar Nueva Venta</h3>
+                <p class="text-xs text-slate-500 mb-4">Descuenta automáticamente del stock de almacén</p>
+                <form id="form-venta" class="space-y-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Cliente / Distribuidor</label>
+                    <select id="venta-cliente" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"></select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Producto</label>
+                    <select id="venta-producto" required onchange="actualizarSubtotalVenta()" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"></select>
+                  </div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs font-semibold text-slate-700 mb-1">Cantidad (Unid.)</label>
+                      <input type="number" id="venta-cantidad" min="1" value="50" required oninput="actualizarSubtotalVenta()"
+                        class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-semibold text-slate-700 mb-1">Total Estimado</label>
+                      <div id="venta-subtotal-box" class="px-3 py-2 rounded-lg bg-slate-100 border border-slate-200 text-sm font-bold text-emerald-700">
+                        Bs. 0.00
+                      </div>
+                    </div>
+                  </div>
+                  <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    Confirmar Venta
+                  </button>
+                </form>
+              </div>
+
+              <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-900 mb-1">Registrar Nuevo Cliente</h3>
+                <p class="text-xs text-slate-500 mb-4">Alta de cliente o distribuidor por NIT o Carnet (CI)</p>
+                <form id="form-cliente" class="space-y-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre Completo / Razón Social</label>
+                    <input type="text" id="cli-nombre" required placeholder="Ej. Tienda Central / Juan Pérez"
+                      class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                  </div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs font-semibold text-slate-700 mb-1">Tipo Documento</label>
+                      <select id="cli-tipo-doc" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white">
+                        <option value="NIT">NIT</option>
+                        <option value="CI">Carnet (CI)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-xs font-semibold text-slate-700 mb-1">N° NIT o Carnet</label>
+                      <input type="text" id="cli-doc" required placeholder="Ej. 7845120 o 1029384019"
+                        class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs font-semibold text-slate-700 mb-1">Zona / Dirección</label>
+                      <input type="text" id="cli-zona" required placeholder="Ej. Zona Central, Sucre"
+                        class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-semibold text-slate-700 mb-1">Teléfono</label>
+                      <input type="text" id="cli-telefono" required placeholder="Ej. 64-51020 / 72011223"
+                        class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                    </div>
+                  </div>
+                  <button type="submit" class="w-full bg-slate-900 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                    Guardar Cliente
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div class="lg:col-span-2 bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm h-fit">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-900">Directorio de Clientes y Estado de Cuenta</h3>
+                  <p class="text-xs text-slate-500">Consulta o imprime el historial de compras de cada cliente</p>
+                </div>
+                <input type="text" id="buscar-cliente" oninput="renderVentas()" placeholder="Buscar por nombre, NIT o CI..."
+                  class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs w-60 bg-white" />
+              </div>
+              <div id="grid-clientes" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+            </div>
+          </div>
+
+          <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Registro General de Ventas</h3>
+                <p class="text-xs text-slate-500">Detalle cronológico de transacciones realizadas</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <input type="text" id="filtro-ventas-texto" oninput="renderVentas()" placeholder="Filtrar por producto o cliente..."
+                  class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs w-52 bg-white" />
+                <button onclick="abrirVistaPreviaReporte('ventas_general')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
+                  <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                  Imprimir Reporte Ventas
+                </button>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase">
+                    <th class="py-2.5 px-3">N° Pedido</th>
+                    <th class="py-2.5 px-3">Fecha</th>
+                    <th class="py-2.5 px-3">Cliente</th>
+                    <th class="py-2.5 px-3">Producto</th>
+                    <th class="py-2.5 px-3">Cant.</th>
+                    <th class="py-2.5 px-3">Total (Bs.)</th>
+                    <th class="py-2.5 px-3 text-right">Historial</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-ventas" class="divide-y divide-slate-100 text-sm"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 4. PLANILLA DE PAGOS Y ASISTENCIA ==================== -->
+        <section id="tab-planilla" class="tab-content hidden space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm h-fit">
+              <h3 class="text-sm font-bold text-slate-900 mb-1">Marcar Entrada / Salida de Empleado</h3>
+              <p class="text-xs text-slate-500 mb-4">Registra asistencia diaria en Planta Sucre</p>
+              <form id="form-asistencia" class="space-y-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Empleado</label>
+                  <select id="asis-empleado" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"></select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Registro</label>
+                    <select id="asis-tipo" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white">
+                      <option value="ENTRADA">Entrada</option>
+                      <option value="SALIDA">Salida</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Fecha</label>
+                    <input type="date" id="asis-fecha" required
+                      class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Hora de Marcación</label>
+                  <input type="time" id="asis-hora" required
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                </div>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2">
+                  <i data-lucide="clock" class="w-4 h-4"></i>
+                  Registrar Marcación
+                </button>
+              </form>
+            </div>
+
+            <div class="lg:col-span-2 bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-900">Bitácora de Entradas y Salidas del Personal</h3>
+                  <p class="text-xs text-slate-500">Control diario de ingreso y salida por trabajador</p>
+                </div>
+                <button onclick="abrirVistaPreviaReporte('asistencia')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
+                  <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                  Imprimir Registro Asistencia
+                </button>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase">
+                      <th class="py-2.5 px-3">Fecha</th>
+                      <th class="py-2.5 px-3">Empleado</th>
+                      <th class="py-2.5 px-3">Entrada</th>
+                      <th class="py-2.5 px-3">Salida</th>
+                      <th class="py-2.5 px-3">Registrado por</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-asistencia" class="divide-y divide-slate-100 text-sm"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Planilla de Sueldos, Asistencia y Descuentos</h3>
+                <p class="text-xs text-slate-500">Cálculo automático: Descuento = (Haber Básico / 30) × Días de Falta</p>
+              </div>
+              <button onclick="abrirVistaPreviaReporte('planilla')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
+                <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                Imprimir Planilla Oficial
+              </button>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase">
+                    <th class="py-2.5 px-3">Trabajador</th>
+                    <th class="py-2.5 px-3">Cargo</th>
+                    <th class="py-2.5 px-3">Turno Base</th>
+                    <th class="py-2.5 px-3">Haber Básico</th>
+                    <th class="py-2.5 px-3">Faltas (Días)</th>
+                    <th class="py-2.5 px-3">Descuento</th>
+                    <th class="py-2.5 px-3">Líquido Pagable</th>
+                    <th class="py-2.5 px-3">Estado</th>
+                    <th class="py-2.5 px-3 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-planilla" class="divide-y divide-slate-100 text-sm"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 5. USUARIOS Y ROLES ==================== -->
+        <section id="tab-usuarios" class="tab-content hidden space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm h-fit">
+              <h3 class="text-sm font-bold text-slate-900 mb-1">Crear / Editar Usuario</h3>
+              <p class="text-xs text-slate-500 mb-4">Asigna roles y permisos de acceso al ERP</p>
+              <form id="form-usuario" class="space-y-3">
+                <input type="hidden" id="usr-id" />
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre Completo</label>
+                  <input type="text" id="usr-nombre" required placeholder="Ej. Carlos Mendoza"
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Correo Institucional</label>
+                  <input type="email" id="usr-email" required placeholder="usuario@salvietti.bo"
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Contraseña</label>
+                    <input type="text" id="usr-password" required placeholder="Clave"
+                      class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Rol</label>
+                    <select id="usr-rol" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white">
+                      <option value="Administrador">Administrador</option>
+                      <option value="Almacenero">Almacenero</option>
+                      <option value="Vendedor">Vendedor</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="flex gap-2 pt-1">
+                  <button type="submit" class="flex-1 bg-slate-900 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-sm transition">
+                    Guardar Usuario
+                  </button>
+                  <button type="button" onclick="resetFormUsuario()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">
+                    Limpiar
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div class="lg:col-span-2 bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 class="text-sm font-bold text-slate-900 mb-4">Cuentas Registradas en el Sistema</h3>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase">
+                      <th class="py-2.5 px-3">Nombre</th>
+                      <th class="py-2.5 px-3">Correo</th>
+                      <th class="py-2.5 px-3">Rol</th>
+                      <th class="py-2.5 px-3">Estado</th>
+                      <th class="py-2.5 px-3 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabla-usuarios" class="divide-y divide-slate-100 text-sm"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 6. AUDITORÍA ==================== -->
+        <section id="tab-auditoria" class="tab-content hidden space-y-6">
+          <div class="bg-white/95 p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Bitácora de Auditoría y Seguridad</h3>
+                <p class="text-xs text-slate-500">Registro cronológico inmutable de operaciones de usuarios</p>
+              </div>
+              <span class="text-xs bg-emerald-50 text-emerald-700 font-semibold px-3 py-1 rounded-full border border-emerald-200">
+                Monitoreo Activo
+              </span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase">
+                    <th class="py-2.5 px-3">Fecha y Hora</th>
+                    <th class="py-2.5 px-3">Usuario</th>
+                    <th class="py-2.5 px-3">Módulo</th>
+                    <th class="py-2.5 px-3">Acción Ejecutada</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-auditoria" class="divide-y divide-slate-100 text-sm"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- MODAL HISTORIAL DE COMPRAS POR CLIENTE -->
+  <div id="modal-cliente" class="hidden fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
+      <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div>
+          <h3 id="modal-cliente-nombre" class="text-base font-bold text-slate-900">Historial del Cliente</h3>
+          <p id="modal-cliente-info" class="text-xs text-slate-500">Documento / Zona Sucre</p>
+        </div>
+        <button onclick="cerrarModalCliente()" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-5 max-h-[60vh] overflow-y-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase">
+              <th class="py-2 px-2">Pedido</th>
+              <th class="py-2 px-2">Fecha</th>
+              <th class="py-2 px-2">Producto</th>
+              <th class="py-2 px-2">Cant.</th>
+              <th class="py-2 px-2 text-right">Subtotal (Bs.)</th>
+            </tr>
+          </thead>
+          <tbody id="modal-cliente-tbody" class="divide-y divide-slate-100 text-sm"></tbody>
+        </table>
+      </div>
+      <div class="p-4 border-t border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <span class="text-xs text-slate-500">Total Acumulado:</span>
+          <span id="modal-cliente-total" class="text-base font-bold text-emerald-700 ml-1">Bs. 0.00</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btn-imprimir-estado-cliente" class="bg-slate-900 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 transition">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            Imprimir Estado de Cuenta
+          </button>
+          <button onclick="cerrarModalCliente()" class="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-lg">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL VISTA PREVIA DE IMPRESIÓN OFICIAL -->
+  <div id="modal-print" class="hidden fixed inset-0 z-50 bg-slate-950/75 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+      <div class="no-print px-6 py-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="file-text" class="w-5 h-5 text-emerald-400"></i>
+          <span class="text-sm font-bold">Vista Previa de Documento Oficial para Auditoría</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="ejecutarImpresionNativa()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 transition">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            Imprimir Ahora
+          </button>
+          <button onclick="descargarReporteHTML()" class="bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            Descargar Reporte (.html)
+          </button>
+          <button onclick="cerrarModalPrint()" class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-300">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="p-6 overflow-y-auto bg-slate-100 flex-1">
+        <div id="print-area" class="bg-white p-8 rounded-lg shadow-sm border border-slate-200 max-w-3xl mx-auto text-slate-900"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SESSION_KEY = 'salvietti_erp_session_v1';
+
+    // Configuración de Firebase Cloud Firestore (Proyecto: analsisdesis)[cite: 9]
+    const firebaseConfig = {
+      apiKey: "AIzaSyAhYQe-P3Ubg6AwVZsuvPDpwYr28QecWw8",
+      authDomain: "analsisdesis.firebaseapp.com",
+      projectId: "analsisdesis",
+      storageBucket: "analsisdesis.firebasestorage.app",
+      messagingSenderId: "816392653560",
+      appId: "1:816392653560:web:9cd3637427df83689c090d",
+      measurementId: "G-6KVKXJYHMN"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const erpDocRef = db.collection('salvietti_erp').doc('estado_general');
+
+    // Logo oficial Salvietti embebido (SVG fiel al emblema) + soporte para archivo local 'logo-salvietti.png'
+    const SALVIETTI_LOGO_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 250">
+        <g transform="rotate(-11 180 125)">
+          <ellipse cx="180" cy="125" rx="162" ry="104" fill="#ffffff"/>
+          <ellipse cx="180" cy="125" rx="152" ry="95" fill="#0d6938"/>
+          <path d="M 48 125 A 132 78 0 0 1 285 78 C 232 72, 185 102, 158 142 C 122 178, 72 162, 48 125 Z" fill="#ffffff"/>
+          <path d="M 312 125 A 132 78 0 0 1 75 172 C 128 178, 175 148, 202 108 C 238 72, 288 88, 312 125 Z" fill="#ffd200"/>
+          <text x="180" y="147" text-anchor="middle" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="68" letter-spacing="-2"
+            stroke="#ffffff" stroke-width="11" stroke-linejoin="round" fill="#ffffff">Salvietti</text>
+          <text x="180" y="147" text-anchor="middle" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="68" letter-spacing="-2"
+            fill="#d71920">Salvietti</text>
+        </g>
+      </svg>
+    `);
+
+    function aplicarLogosSalvietti(root = document) {
+      root.querySelectorAll('img[data-salvietti-logo]').forEach(img => {
+        if (img.dataset.logoBound) return;
+        img.dataset.logoBound = '1';
+        img.onerror = () => {
+          img.onerror = null;
+          img.src = SALVIETTI_LOGO_SVG;
+        };
+        img.src = 'logo-salvietti.png';
+      });
+    }
+
+    function clonarDatos(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+
+    const INITIAL_DATA = {
+      usuarios: [
+        { id: 1, nombre: 'Ing. Roberto Salazar', email: 'admin@salvietti.bo', password: 'admin123', rol: 'Administrador', activo: true },
+        { id: 2, nombre: 'Téc. Marco Gutiérrez', email: 'almacen@salvietti.bo', password: 'almacen123', rol: 'Almacenero', activo: true },
+        { id: 3, nombre: 'Lic. Valeria Torrico', email: 'ventas@salvietti.bo', password: 'ventas123', rol: 'Vendedor', activo: true },
+        { id: 4, nombre: 'Jorge Mamani', email: 'j.mamani@salvietti.bo', password: 'ventas456', rol: 'Vendedor', activo: false }
+      ],
+      productos: [
+        { id: 'SAL-01', nombre: 'Salvietti Papaya 2 Litros (Paq. x6)', precio: 42.00, stock: 1850, stockMinimo: 1200 },
+        { id: 'SAL-02', nombre: 'Salvietti Papaya 500 ml (Paq. x12)', precio: 36.00, stock: 740, stockMinimo: 900 },
+        { id: 'SAL-03', nombre: 'Salvietti Guaraná 2 Litros (Paq. x6)', precio: 42.00, stock: 1420, stockMinimo: 1000 },
+        { id: 'SAL-04', nombre: 'Salvietti Naranja 2 Litros (Paq. x6)', precio: 40.00, stock: 580, stockMinimo: 750 },
+        { id: 'SAL-05', nombre: 'Agua Mineral Salvietti 600 ml (Paq. x12)', precio: 24.00, stock: 2300, stockMinimo: 1500 }
+      ],
+      kardex: [
+        { id: 101, fecha: '2026-11-23 08:30', tipo: 'ENTRADA', producto: 'Salvietti Papaya 2 Litros (Paq. x6)', cantidad: 600, motivo: 'Lote Producción Planta Sucre #88', responsable: 'Téc. Marco Gutiérrez' },
+        { id: 102, fecha: '2026-11-23 14:15', tipo: 'SALIDA', producto: 'Salvietti Papaya 500 ml (Paq. x12)', cantidad: 250, motivo: 'Despacho Pedido #PED-1001', responsable: 'Lic. Valeria Torrico' },
+        { id: 103, fecha: '2026-11-24 07:45', tipo: 'SALIDA', producto: 'Salvietti Naranja 2 Litros (Paq. x6)', cantidad: 200, motivo: 'Despacho Pedido #PED-1002', responsable: 'Lic. Valeria Torrico' }
+      ],
+      clientes: [
+        { id: 'CLI-01', nombre: 'Distribuidora El Campanario', tipoDoc: 'NIT', documento: '1029384015', zona: 'Zona Central, Sucre', telefono: '64-52189' },
+        { id: 'CLI-02', nombre: 'Supermercado SAS Sucre', tipoDoc: 'NIT', documento: '2938475011', zona: 'Av. Hernando Siles', telefono: '64-48920' },
+        { id: 'CLI-03', nombre: 'Comercial La Recoleta', tipoDoc: 'CI', documento: '5648912', zona: 'Barrio La Recoleta', telefono: '728-91022' },
+        { id: 'CLI-04', nombre: 'Mayorista Mercado Campesino', tipoDoc: 'NIT', documento: '5910283014', zona: 'Zona Mercado Campesino', telefono: '711-45098' }
+      ],
+      ventas: [
+        { id: 'PED-1001', fecha: '2026-11-22', clienteId: 'CLI-01', productoId: 'SAL-01', cantidad: 120, total: 5040.00 },
+        { id: 'PED-1002', fecha: '2026-11-23', clienteId: 'CLI-02', productoId: 'SAL-02', cantidad: 250, total: 9000.00 },
+        { id: 'PED-1003', fecha: '2026-11-23', clienteId: 'CLI-04', productoId: 'SAL-04', cantidad: 200, total: 8000.00 },
+        { id: 'PED-1004', fecha: '2026-11-24', clienteId: 'CLI-01', productoId: 'SAL-03', cantidad: 80, total: 3360.00 }
+      ],
+      planilla: [
+        { id: 1, nombre: 'Ing. Roberto Salazar', cargo: 'Jefe de Operaciones', entradaBase: '08:00', salidaBase: '17:00', haberBasico: 7500, faltas: 0, pagado: true },
+        { id: 2, nombre: 'Téc. Marco Gutiérrez', cargo: 'Encargado de Almacén', entradaBase: '07:30', salidaBase: '16:30', haberBasico: 4800, faltas: 1, pagado: false },
+        { id: 3, nombre: 'Lic. Valeria Torrico', cargo: 'Ejecutiva de Ventas', entradaBase: '08:30', salidaBase: '17:30', haberBasico: 4500, faltas: 0, pagado: true },
+        { id: 4, nombre: 'Luis Fernando Quispe', cargo: 'Operador de Línea Embotellado', entradaBase: '07:00', salidaBase: '15:00', haberBasico: 3600, faltas: 2, pagado: false },
+        { id: 5, nombre: 'Ana María Choque', cargo: 'Control de Calidad', entradaBase: '08:00', salidaBase: '16:00', haberBasico: 4200, faltas: 0, pagado: false }
+      ],
+      asistencia: [
+        { id: 1, fecha: '2026-11-24', empleadoId: 1, empleadoNombre: 'Ing. Roberto Salazar', horaEntrada: '07:55', horaSalida: null, registradoPor: 'Sistema ERP' },
+        { id: 2, fecha: '2026-11-24', empleadoId: 2, empleadoNombre: 'Téc. Marco Gutiérrez', horaEntrada: '07:28', horaSalida: null, registradoPor: 'Sistema ERP' },
+        { id: 3, fecha: '2026-11-23', empleadoId: 3, empleadoNombre: 'Lic. Valeria Torrico', horaEntrada: '08:27', horaSalida: '17:32', registradoPor: 'Sistema ERP' }
+      ],
+      auditoria: [
+        { fecha: '2026-11-24 07:30', usuario: 'Sistema ERP', modulo: 'Seguridad', accion: 'Inicialización de servicios Planta Sucre' }
+      ]
+    };
+
+    const state = {
+      currentUser: null,
+      ...clonarDatos(INITIAL_DATA),
+      charts: { stock: null, ventas: null }
+    };
+
+    let lastSeenAuditSignature = null;
+
+    function cargarSesionLocal() {
+      try {
+        const raw = localStorage.getItem(SESSION_KEY);
+        if (raw) {
+          state.currentUser = JSON.parse(raw);
+        }
+      } catch (err) {
+        console.warn('No se pudo leer sesión local:', err);
+      }
+    }
+
+    function guardarSesionLocal() {
+      try {
+        if (state.currentUser) {
+          localStorage.setItem(SESSION_KEY, JSON.stringify(state.currentUser));
+        } else {
+          localStorage.removeItem(SESSION_KEY);
+        }
+      } catch (err) {
+        console.warn('No se pudo guardar sesión local:', err);
+      }
+    }
+
+    function saveState() {
+      guardarSesionLocal();
+      const { charts, currentUser, ...persistable } = state;
+      erpDocRef.set(clonarDatos(persistable)).catch(err => {
+        console.error('Error guardando en Firestore:', err);
+        showToast('Error al sincronizar con Firestore. Revisa tu conexión o reglas.', 'error');
+      });
+    }
+
+    function aplicarDatosRemotos(data) {
+      if (Array.isArray(data.usuarios) && data.usuarios.length > 0) state.usuarios = data.usuarios;
+      if (Array.isArray(data.productos) && data.productos.length > 0) state.productos = data.productos;
+      if (Array.isArray(data.kardex)) state.kardex = data.kardex;
+      if (Array.isArray(data.clientes)) state.clientes = data.clientes;
+      if (Array.isArray(data.ventas)) state.ventas = data.ventas;
+      if (Array.isArray(data.planilla)) state.planilla = data.planilla;
+      if (Array.isArray(data.asistencia)) state.asistencia = data.asistencia;
+      if (Array.isArray(data.auditoria)) state.auditoria = data.auditoria;
+    }
+
+    function iniciarEscuchaFirestore() {
+      erpDocRef.onSnapshot((doc) => {
+        if (!doc.exists) {
+          const { charts, currentUser, ...persistable } = state;
+          erpDocRef.set(clonarDatos(persistable)).catch(err => {
+            console.error('Error creando documento inicial en Firestore:', err);
+          });
+          return;
+        }
+
+        const data = doc.data() || {};
+        aplicarDatosRemotos(data);
+
+        const ultimo = state.auditoria[0];
+        const firmaActual = ultimo ? `${ultimo.fecha}|${ultimo.usuario}|${ultimo.accion}` : null;
+        const huboCambioExterno = lastSeenAuditSignature && firmaActual && firmaActual !== lastSeenAuditSignature;
+        lastSeenAuditSignature = firmaActual;
+
+        if (state.currentUser && !document.getElementById('app-shell').classList.contains('hidden')) {
+          renderAll();
+          if (huboCambioExterno && ultimo && !ultimo.usuario.includes(state.currentUser.nombre)) {
+            showToast(`Tiempo real (${ultimo.usuario}): ${ultimo.accion}`, 'warning');
+          }
+        }
+      }, (err) => {
+        console.error('Error en escucha en tiempo real de Firestore:', err);
+        showToast('No se pudo conectar en tiempo real a Firestore.', 'error');
+      });
+    }
+
+    cargarSesionLocal();
+
+    const rolePermissions = {
+      'Administrador': ['dashboard', 'almacen', 'ventas', 'planilla', 'usuarios', 'auditoria'],
+      'Almacenero': ['dashboard', 'almacen', 'planilla'],
+      'Vendedor': ['dashboard', 'ventas']
+    };
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const colors = {
+        success: 'bg-slate-900 text-white border-l-4 border-emerald-500',
+        error: 'bg-red-950 text-white border-l-4 border-red-500',
+        warning: 'bg-amber-950 text-white border-l-4 border-amber-400'
+      };
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto px-4 py-3 rounded-lg shadow-lg text-xs font-medium flex items-center justify-between gap-3 transition-all ${colors[type]}`;
+      el.innerHTML = `<span>${message}</span>`;
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 3800);
+    }
+
+    function logAudit(modulo, accion) {
+      const now = new Date();
+      const stamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      const actor = state.currentUser ? `${state.currentUser.nombre} (${state.currentUser.rol})` : 'Sistema';
+      state.auditoria.unshift({
+        fecha: stamp,
+        usuario: actor,
+        modulo,
+        accion
+      });
+      lastSeenAuditSignature = `${stamp}|${actor}|${accion}`;
+      saveState();
+    }
+
+    function formatBs(num) {
+      return 'Bs. ' + Number(num).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // ==================== AUTENTICACIÓN ====================
+    function fillLogin(email, pass) {
+      document.getElementById('login-email').value = email;
+      document.getElementById('login-password').value = pass;
+    }
+
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim().toLowerCase();
+      const pass = document.getElementById('login-password').value.trim();
+
+      const user = state.usuarios.find(
+        u => String(u.email || '').trim().toLowerCase() === email && String(u.password || '').trim() === pass
+      );
+
+      if (!user) {
+        showToast('Credenciales incorrectas. Verifica correo y contraseña.', 'error');
+        return;
+      }
+      if (!user.activo) {
+        showToast('Esta cuenta se encuentra desactivada. Contacta al Administrador.', 'error');
+        return;
+      }
+
+      state.currentUser = user;
+      guardarSesionLocal();
+      logAudit('Acceso', `Inicio de sesión exitoso (${user.rol})`);
+      iniciarSesionUI();
+    });
+
+    function iniciarSesionUI() {
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('app-shell').classList.remove('hidden');
+
+      const u = state.currentUser;
+      document.getElementById('user-name-display').textContent = u.nombre;
+      document.getElementById('user-role-display').textContent = u.rol;
+      document.getElementById('user-avatar').textContent = u.nombre.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
+      const today = new Date().toLocaleDateString('es-BO', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+      document.querySelector('#current-date-badge span').textContent = today;
+
+      const allowed = rolePermissions[u.rol] || ['dashboard'];
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        const tab = btn.dataset.tab;
+        btn.classList.toggle('hidden', !allowed.includes(tab));
+      });
+
+      aplicarLogosSalvietti();
+      switchTab(allowed[0]);
+      showToast(`Bienvenido, ${u.nombre} (${u.rol})`);
+    }
+
+    function logout() {
+      logAudit('Acceso', 'Cierre de sesión');
+      state.currentUser = null;
+      guardarSesionLocal();
+      document.getElementById('app-shell').classList.add('hidden');
+      document.getElementById('login-screen').classList.remove('hidden');
+    }
+
+    // ==================== NAVEGACIÓN ====================
+    const tabMeta = {
+      dashboard: { title: 'Dashboard Ejecutivo', sub: 'Indicadores clave de rendimiento — Planta Sucre' },
+      almacen: { title: 'Almacén e Inventario', sub: 'Control de existencias, stock mínimo (550–2.500) y Kardex' },
+      ventas: { title: 'Ventas e Historial de Clientes', sub: 'Registro de clientes por NIT/CI, ventas y estado de cuenta' },
+      planilla: { title: 'Planilla de Pagos y Asistencia', sub: 'Registro de entrada/salida y cálculo de descuentos por faltas' },
+      usuarios: { title: 'Usuarios y Control de Roles', sub: 'Administración de cuentas y permisos del ERP' },
+      auditoria: { title: 'Auditoría del Sistema', sub: 'Trazabilidad completa de acciones por usuario' }
+    };
+
+    function switchTab(tabId) {
+      const allowed = rolePermissions[state.currentUser.rol] || [];
+      if (!allowed.includes(tabId)) {
+        showToast('No tienes permisos para acceder a este módulo.', 'warning');
+        return;
+      }
+
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        const active = btn.dataset.tab === tabId;
+        btn.classList.toggle('bg-emerald-600', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('text-slate-300', !active);
+      });
+
+      document.getElementById('page-title').textContent = tabMeta[tabId].title;
+      document.getElementById('page-subtitle').textContent = tabMeta[tabId].sub;
+
+      renderAll();
+    }
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    // ==================== RENDERIZADO GENERAL ====================
+    function renderAll() {
+      actualizarBadgesAlertas();
+      renderDashboard();
+      renderAlmacen();
+      renderVentas();
+      renderPlanilla();
+      renderUsuarios();
+      renderAuditoria();
+      aplicarLogosSalvietti();
+      lucide.createIcons();
+    }
+
+    function actualizarBadgesAlertas() {
+      const criticos = state.productos.filter(p => p.stock < p.stockMinimo);
+      const badge = document.getElementById('badge-stock-critico');
+      if (criticos.length > 0) {
+        badge.textContent = criticos.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    // ==================== 1. DASHBOARD ====================
+    function renderDashboard() {
+      const totalVentas = state.ventas.reduce((acc, v) => acc + v.total, 0);
+      const criticos = state.productos.filter(p => p.stock < p.stockMinimo);
+      const totalPlanilla = state.planilla.reduce((acc, emp) => {
+        const desc = (emp.haberBasico / 30) * emp.faltas;
+        return acc + (emp.haberBasico - desc);
+      }, 0);
+      const pendientesPlanilla = state.planilla.filter(e => !e.pagado).length;
+      const activos = state.usuarios.filter(u => u.activo).length;
+
+      document.getElementById('kpi-ventas').textContent = formatBs(totalVentas);
+      document.getElementById('kpi-ventas-count').textContent = `${state.ventas.length} pedidos registrados`;
+      document.getElementById('kpi-stock-critico').textContent = criticos.length;
+      document.getElementById('kpi-planilla').textContent = formatBs(totalPlanilla);
+      document.getElementById('kpi-planilla-pendiente').textContent = `${pendientesPlanilla} pagos pendientes`;
+      document.getElementById('kpi-usuarios').textContent = activos;
+
+      const alertList = document.getElementById('dashboard-alertas-list');
+      if (criticos.length === 0) {
+        alertList.innerHTML = `<p class="text-xs text-emerald-700 bg-emerald-50 p-3 rounded-lg">Todos los productos superan su stock mínimo configurado.</p>`;
+      } else {
+        alertList.innerHTML = criticos.map(p => `
+          <div class="flex items-center justify-between p-2.5 rounded-lg bg-red-50 border border-red-100 text-xs">
+            <div>
+              <span class="font-bold text-red-900">${p.nombre}</span>
+              <span class="block text-red-700">Stock actual: <strong>${p.stock}</strong> unid. (Mínimo: ${p.stockMinimo})</span>
+            </div>
+            <span class="px-2 py-0.5 bg-red-600 text-white font-bold rounded text-[10px]">REPONER</span>
+          </div>
+        `).join('');
+      }
+
+      const audList = document.getElementById('dashboard-auditoria-list');
+      audList.innerHTML = state.auditoria.slice(0, 4).map(a => `
+        <div class="flex items-start justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-xs">
+          <div>
+            <span class="font-semibold text-slate-800">${a.accion}</span>
+            <span class="block text-slate-500">${a.usuario} • ${a.modulo}</span>
+          </div>
+          <span class="text-[11px] text-slate-400 shrink-0">${a.fecha}</span>
+        </div>
+      `).join('');
+
+      renderCharts();
+    }
+
+    function renderCharts() {
+      const ctxStock = document.getElementById('chart-stock');
+      const ctxVentas = document.getElementById('chart-ventas');
+      if (!ctxStock || !ctxVentas || typeof Chart === 'undefined') return;
+
+      if (state.charts.stock) state.charts.stock.destroy();
+      if (state.charts.ventas) state.charts.ventas.destroy();
+
+      state.charts.stock = new Chart(ctxStock, {
+        type: 'bar',
+        data: {
+          labels: state.productos.map(p => p.id),
+          datasets: [
+            {
+              label: 'Stock Actual',
+              data: state.productos.map(p => p.stock),
+              backgroundColor: state.productos.map(p => p.stock < p.stockMinimo ? '#dc2626' : '#059669'),
+              borderRadius: 6
+            },
+            {
+              label: 'Stock Mínimo',
+              data: state.productos.map(p => p.stockMinimo),
+              backgroundColor: '#94a3b8',
+              borderRadius: 6
+            }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+      });
+
+      const ventasPorProd = state.productos.map(p => {
+        return state.ventas.filter(v => v.productoId === p.id).reduce((s, v) => s + v.total, 0);
+      });
+
+      state.charts.ventas = new Chart(ctxVentas, {
+        type: 'doughnut',
+        data: {
+          labels: state.productos.map(p => p.nombre.split('(')[0].trim()),
+          datasets: [{
+            data: ventasPorProd,
+            backgroundColor: ['#0f172a', '#059669', '#0284c7', '#d97706', '#64748b']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+      });
+    }
+
+    // ==================== 2. ALMACÉN ====================
+    function renderAlmacen() {
+      const selectProd = document.getElementById('mov-producto');
+      const currentVal = selectProd.value;
+      selectProd.innerHTML = state.productos.map(p => `<option value="${p.id}">${p.id} - ${p.nombre} (Stock: ${p.stock})</option>`).join('');
+      if (currentVal) selectProd.value = currentVal;
+
+      const criticos = state.productos.filter(p => p.stock < p.stockMinimo);
+      const banner = document.getElementById('almacen-alert-banner');
+      if (criticos.length > 0) {
+        banner.classList.remove('hidden');
+        document.getElementById('almacen-alert-text').textContent =
+          `Los siguientes productos están debajo de su umbral mínimo: ${criticos.map(c => `${c.nombre} (${c.stock}/${c.stockMinimo})`).join(', ')}.`;
+      } else {
+        banner.classList.add('hidden');
+      }
+
+      document.getElementById('tabla-inventario').innerHTML = state.productos.map(p => {
+        const bajo = p.stock < p.stockMinimo;
+        return `
+          <tr class="${bajo ? 'bg-red-50/50' : ''}">
+            <td class="py-2.5 px-3 font-mono text-xs font-bold text-slate-700">${p.id}</td>
+            <td class="py-2.5 px-3 font-medium text-slate-900">${p.nombre}</td>
+            <td class="py-2.5 px-3 text-slate-700">${formatBs(p.precio)}</td>
+            <td class="py-2.5 px-3 font-bold ${bajo ? 'text-red-600' : 'text-slate-900'}">${p.stock.toLocaleString()} unid.</td>
+            <td class="py-2.5 px-3">
+              <input type="number" min="550" max="2500" value="${p.stockMinimo}"
+                onchange="actualizarStockMinimo('${p.id}', this.value)"
+                class="w-24 px-2 py-1 rounded border border-slate-300 text-xs font-semibold text-slate-800 bg-white" />
+            </td>
+            <td class="py-2.5 px-3">
+              ${bajo
+                ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-700">Stock Bajo</span>`
+                : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">Óptimo</span>`
+              }
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      const filtroTipo = document.getElementById('filtro-kardex-tipo').value;
+      const movimientosFiltrados = state.kardex.filter(m => filtroTipo === 'TODOS' || m.tipo === filtroTipo);
+
+      document.getElementById('tabla-kardex').innerHTML = movimientosFiltrados.map(m => `
+        <tr>
+          <td class="py-2.5 px-3 text-xs text-slate-500">${m.fecha}</td>
+          <td class="py-2.5 px-3">
+            <span class="px-2 py-0.5 rounded text-[11px] font-bold ${m.tipo === 'ENTRADA' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+              ${m.tipo}
+            </span>
+          </td>
+          <td class="py-2.5 px-3 font-medium text-slate-900">${m.producto}</td>
+          <td class="py-2.5 px-3 font-bold ${m.tipo === 'ENTRADA' ? 'text-emerald-700' : 'text-amber-700'}">
+            ${m.tipo === 'ENTRADA' ? '+' : '-'}${m.cantidad}
+          </td>
+          <td class="py-2.5 px-3 text-xs text-slate-600">${m.motivo}</td>
+          <td class="py-2.5 px-3 text-xs text-slate-700">${m.responsable}</td>
+        </tr>
+      `).join('');
+    }
+
+    function actualizarStockMinimo(prodId, nuevoValor) {
+      const val = parseInt(nuevoValor, 10);
+      if (isNaN(val) || val < 550 || val > 2500) {
+        showToast('El stock mínimo debe estar estrictamente entre 550 y 2.500 unidades.', 'error');
+        renderAlmacen();
+        return;
+      }
+      const prod = state.productos.find(p => p.id === prodId);
+      prod.stockMinimo = val;
+      logAudit('Almacén', `Actualizó stock mínimo de ${prod.id} a ${val} unidades`);
+      showToast(`Stock mínimo de ${prod.id} actualizado a ${val} unidades.`);
+      renderAll();
+    }
+
+    document.getElementById('form-movimiento').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const prodId = document.getElementById('mov-producto').value;
+      const tipo = document.getElementById('mov-tipo').value;
+      const cantidad = parseInt(document.getElementById('mov-cantidad').value, 10);
+      const motivo = document.getElementById('mov-motivo').value.trim();
+
+      const prod = state.productos.find(p => p.id === prodId);
+      if (tipo === 'SALIDA' && cantidad > prod.stock) {
+        showToast(`Stock insuficiente. Disponible: ${prod.stock} unidades.`, 'error');
+        return;
+      }
+
+      prod.stock = tipo === 'ENTRADA' ? prod.stock + cantidad : prod.stock - cantidad;
+      const now = new Date();
+      const fecha = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+      state.kardex.unshift({
+        id: Date.now(),
+        fecha,
+        tipo,
+        producto: prod.nombre,
+        cantidad,
+        motivo,
+        responsable: `${state.currentUser.nombre} (${state.currentUser.rol})`
+      });
+
+      logAudit('Almacén', `Registró ${tipo} de ${cantidad} unid. (${prod.id})`);
+      showToast(`Movimiento de ${tipo} registrado y sincronizado en Firestore.`);
+      document.getElementById('mov-cantidad').value = '';
+      document.getElementById('mov-motivo').value = '';
+      renderAll();
+    });
+
+    // ==================== 3. VENTAS Y CLIENTES ====================
+    function renderVentas() {
+      const selCli = document.getElementById('venta-cliente');
+      const prevCli = selCli.value;
+      selCli.innerHTML = state.clientes.map(c => `<option value="${c.id}">${c.nombre} (${c.tipoDoc}: ${c.documento})</option>`).join('');
+      if (prevCli && state.clientes.some(c => c.id === prevCli)) selCli.value = prevCli;
+
+      const selProd = document.getElementById('venta-producto');
+      const prevProd = selProd.value;
+      selProd.innerHTML = state.productos.map(p => `<option value="${p.id}">${p.nombre} — ${formatBs(p.precio)} (Disp: ${p.stock})</option>`).join('');
+      if (prevProd) selProd.value = prevProd;
+      actualizarSubtotalVenta();
+
+      const qCli = document.getElementById('buscar-cliente').value.toLowerCase().trim();
+      const clientesFiltrados = state.clientes.filter(c =>
+        c.nombre.toLowerCase().includes(qCli) ||
+        String(c.documento).toLowerCase().includes(qCli) ||
+        String(c.tipoDoc).toLowerCase().includes(qCli)
+      );
+
+      document.getElementById('grid-clientes').innerHTML = clientesFiltrados.length === 0
+        ? `<p class="col-span-2 text-xs text-slate-500 text-center py-6">No se encontraron clientes con ese criterio.</p>`
+        : clientesFiltrados.map(c => {
+            const compras = state.ventas.filter(v => v.clienteId === c.id);
+            const totalComprado = compras.reduce((s, v) => s + v.total, 0);
+            return `
+              <div class="p-3.5 rounded-xl border border-slate-200 hover:border-emerald-500 transition bg-slate-50/80 flex flex-col justify-between gap-2">
+                <div>
+                  <div class="flex items-start justify-between gap-2">
+                    <h4 class="text-xs font-bold text-slate-900">${c.nombre}</h4>
+                    <span class="text-[10px] font-semibold bg-slate-200 text-slate-700 px-2 py-0.5 rounded">${compras.length} pedidos</span>
+                  </div>
+                  <p class="text-[11px] text-slate-600 font-medium mt-0.5">${c.tipoDoc}: ${c.documento}</p>
+                  <p class="text-[11px] text-slate-500">${c.zona} • Tel: ${c.telefono}</p>
+                </div>
+                <div class="flex items-center justify-between pt-2 border-t border-slate-200/80">
+                  <span class="text-xs font-bold text-emerald-700">${formatBs(totalComprado)}</span>
+                  <div class="flex items-center gap-1.5">
+                    <button onclick="verHistorialCliente('${c.id}')" class="text-[11px] font-semibold bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 px-2.5 py-1 rounded-md transition">
+                      Ver Historial
+                    </button>
+                    <button onclick="abrirVistaPreviaReporte('cliente', '${c.id}')" title="Imprimir Historial del Cliente" class="text-[11px] font-semibold bg-slate-900 hover:bg-emerald-700 text-white p-1.5 rounded-md transition">
+                      <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+      const qVentas = document.getElementById('filtro-ventas-texto').value.toLowerCase();
+      const ventasFiltradas = state.ventas.filter(v => {
+        const cli = state.clientes.find(c => c.id === v.clienteId);
+        const prod = state.productos.find(p => p.id === v.productoId);
+        return (cli && cli.nombre.toLowerCase().includes(qVentas)) ||
+               (prod && prod.nombre.toLowerCase().includes(qVentas)) ||
+               v.id.toLowerCase().includes(qVentas);
+      });
+
+      document.getElementById('tabla-ventas').innerHTML = ventasFiltradas.map(v => {
+        const cli = state.clientes.find(c => c.id === v.clienteId);
+        const prod = state.productos.find(p => p.id === v.productoId);
+        return `
+          <tr>
+            <td class="py-2.5 px-3 font-mono text-xs font-bold text-slate-700">${v.id}</td>
+            <td class="py-2.5 px-3 text-xs text-slate-500">${v.fecha}</td>
+            <td class="py-2.5 px-3 font-medium text-slate-900">${cli ? cli.nombre : v.clienteId}</td>
+            <td class="py-2.5 px-3 text-xs text-slate-700">${prod ? prod.nombre : v.productoId}</td>
+            <td class="py-2.5 px-3 font-semibold">${v.cantidad}</td>
+            <td class="py-2.5 px-3 font-bold text-emerald-700">${formatBs(v.total)}</td>
+            <td class="py-2.5 px-3 text-right">
+              <button onclick="verHistorialCliente('${v.clienteId}')" class="text-xs text-blue-600 hover:underline font-semibold mr-2">Detalle</button>
+              <button onclick="abrirVistaPreviaReporte('cliente', '${v.clienteId}')" class="text-xs text-slate-700 hover:text-emerald-700 font-semibold">Imprimir</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('form-cliente').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById('cli-nombre').value.trim();
+      const tipoDoc = document.getElementById('cli-tipo-doc').value;
+      const documento = document.getElementById('cli-doc').value.trim();
+      const zona = document.getElementById('cli-zona').value.trim();
+      const telefono = document.getElementById('cli-telefono').value.trim();
+
+      const duplicado = state.clientes.find(c => String(c.documento).toLowerCase() === documento.toLowerCase());
+      if (duplicado) {
+        showToast(`Ya existe un cliente registrado con ese ${tipoDoc} (${duplicado.nombre}).`, 'error');
+        return;
+      }
+
+      const nuevoId = 'CLI-' + String(state.clientes.length + 1).padStart(2, '0') + '-' + Math.floor(10 + Math.random() * 89);
+      state.clientes.unshift({ id: nuevoId, nombre, tipoDoc, documento, zona, telefono });
+      logAudit('Ventas y Clientes', `Registró cliente ${nombre} (${tipoDoc}: ${documento})`);
+      showToast(`Cliente "${nombre}" registrado con ${tipoDoc}: ${documento}.`);
+      document.getElementById('form-cliente').reset();
+      document.getElementById('venta-cliente').value = nuevoId;
+      renderAll();
+    });
+
+    function actualizarSubtotalVenta() {
+      const prodId = document.getElementById('venta-producto').value;
+      const cant = parseInt(document.getElementById('venta-cantidad').value, 10) || 0;
+      const prod = state.productos.find(p => p.id === prodId);
+      const total = prod ? prod.precio * cant : 0;
+      document.getElementById('venta-subtotal-box').textContent = formatBs(total);
+    }
+
+    document.getElementById('form-venta').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const clienteId = document.getElementById('venta-cliente').value;
+      const productoId = document.getElementById('venta-producto').value;
+      const cantidad = parseInt(document.getElementById('venta-cantidad').value, 10);
+
+      const prod = state.productos.find(p => p.id === productoId);
+      const cli = state.clientes.find(c => c.id === clienteId);
+
+      if (cantidad > prod.stock) {
+        showToast(`Stock insuficiente para ${prod.nombre}. Disponible: ${prod.stock}`, 'error');
+        return;
+      }
+
+      const total = prod.precio * cantidad;
+      const pedidoId = 'PED-' + (1001 + state.ventas.length);
+      const now = new Date();
+      const fecha = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+      prod.stock -= cantidad;
+      state.ventas.unshift({ id: pedidoId, fecha, clienteId, productoId, cantidad, total });
+
+      state.kardex.unshift({
+        id: Date.now(),
+        fecha: `${fecha} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
+        tipo: 'SALIDA',
+        producto: prod.nombre,
+        cantidad,
+        motivo: `Venta Facturada ${pedidoId} — ${cli.nombre}`,
+        responsable: `${state.currentUser.nombre} (${state.currentUser.rol})`
+      });
+
+      logAudit('Ventas', `Registró venta ${pedidoId} por ${formatBs(total)} a ${cli.nombre}`);
+      showToast(`Venta ${pedidoId} registrada y sincronizada en Firestore.`);
+      renderAll();
+    });
+
+    function verHistorialCliente(clienteId) {
+      const cli = state.clientes.find(c => c.id === clienteId);
+      const compras = state.ventas.filter(v => v.clienteId === clienteId);
+      const total = compras.reduce((s, v) => s + v.total, 0);
+
+      document.getElementById('modal-cliente-nombre').textContent = `Historial de Compras — ${cli.nombre}`;
+      document.getElementById('modal-cliente-info').textContent = `${cli.tipoDoc}: ${cli.documento} • ${cli.zona} • Tel: ${cli.telefono}`;
+      document.getElementById('modal-cliente-total').textContent = formatBs(total);
+
+      document.getElementById('modal-cliente-tbody').innerHTML = compras.length === 0
+        ? `<tr><td colspan="5" class="py-4 text-center text-xs text-slate-500">Este cliente aún no registra pedidos.</td></tr>`
+        : compras.map(v => {
+            const prod = state.productos.find(p => p.id === v.productoId);
+            return `
+              <tr>
+                <td class="py-2 px-2 font-mono text-xs font-bold">${v.id}</td>
+                <td class="py-2 px-2 text-xs text-slate-500">${v.fecha}</td>
+                <td class="py-2 px-2 text-xs font-medium">${prod ? prod.nombre : v.productoId}</td>
+                <td class="py-2 px-2 text-xs">${v.cantidad}</td>
+                <td class="py-2 px-2 text-xs font-bold text-right text-emerald-700">${formatBs(v.total)}</td>
+              </tr>
+            `;
+          }).join('');
+
+      document.getElementById('btn-imprimir-estado-cliente').onclick = () => {
+        cerrarModalCliente();
+        abrirVistaPreviaReporte('cliente', clienteId);
+      };
+
+      document.getElementById('modal-cliente').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function cerrarModalCliente() {
+      document.getElementById('modal-cliente').classList.add('hidden');
+    }
+
+    // ==================== 4. PLANILLA DE PAGOS Y ASISTENCIA ====================
+    function prepararControlesAsistencia() {
+      const selEmp = document.getElementById('asis-empleado');
+      const prevEmp = selEmp.value;
+      selEmp.innerHTML = state.planilla.map(e => `<option value="${e.id}">${e.nombre} (${e.cargo})</option>`).join('');
+      if (prevEmp) selEmp.value = prevEmp;
+
+      const fechaInput = document.getElementById('asis-fecha');
+      const horaInput = document.getElementById('asis-hora');
+      const now = new Date();
+      if (!fechaInput.value) {
+        fechaInput.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+      }
+      if (!horaInput.value) {
+        horaInput.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      }
+    }
+
+    document.getElementById('form-asistencia').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const empleadoId = parseInt(document.getElementById('asis-empleado').value, 10);
+      const tipo = document.getElementById('asis-tipo').value;
+      const fecha = document.getElementById('asis-fecha').value;
+      const hora = document.getElementById('asis-hora').value;
+
+      const emp = state.planilla.find(x => x.id === empleadoId);
+      let registro = state.asistencia.find(a => a.empleadoId === empleadoId && a.fecha === fecha);
+
+      if (tipo === 'ENTRADA') {
+        if (registro) {
+          registro.horaEntrada = hora;
+          registro.registradoPor = state.currentUser.nombre;
+        } else {
+          state.asistencia.unshift({
+            id: Date.now(),
+            fecha,
+            empleadoId,
+            empleadoNombre: emp.nombre,
+            horaEntrada: hora,
+            horaSalida: null,
+            registradoPor: state.currentUser.nombre
+          });
+        }
+        logAudit('Asistencia', `Registró ENTRADA (${hora}) de ${emp.nombre} el ${fecha}`);
+        showToast(`Entrada registrada para ${emp.nombre} a las ${hora}.`);
+      } else {
+        if (!registro) {
+          state.asistencia.unshift({
+            id: Date.now(),
+            fecha,
+            empleadoId,
+            empleadoNombre: emp.nombre,
+            horaEntrada: '—',
+            horaSalida: hora,
+            registradoPor: state.currentUser.nombre
+          });
+        } else {
+          registro.horaSalida = hora;
+          registro.registradoPor = state.currentUser.nombre;
+        }
+        logAudit('Asistencia', `Registró SALIDA (${hora}) de ${emp.nombre} el ${fecha}`);
+        showToast(`Salida registrada para ${emp.nombre} a las ${hora}.`);
+      }
+
+      renderAll();
+    });
+
+    function renderPlanilla() {
+      prepararControlesAsistencia();
+
+      document.getElementById('tabla-asistencia').innerHTML = state.asistencia.map(a => `
+        <tr>
+          <td class="py-2.5 px-3 text-xs font-mono text-slate-600">${a.fecha}</td>
+          <td class="py-2.5 px-3 font-medium text-slate-900">${a.empleadoNombre}</td>
+          <td class="py-2.5 px-3 text-xs font-bold text-emerald-700">${a.horaEntrada || '—'}</td>
+          <td class="py-2.5 px-3 text-xs font-bold text-blue-700">${a.horaSalida || 'Pendiente'}</td>
+          <td class="py-2.5 px-3 text-xs text-slate-500">${a.registradoPor}</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('tabla-planilla').innerHTML = state.planilla.map(emp => {
+        const descuento = (emp.haberBasico / 30) * emp.faltas;
+        const liquido = emp.haberBasico - descuento;
+        return `
+          <tr>
+            <td class="py-2.5 px-3 font-medium text-slate-900">${emp.nombre}</td>
+            <td class="py-2.5 px-3 text-xs text-slate-600">${emp.cargo}</td>
+            <td class="py-2.5 px-3 text-xs font-mono text-slate-700">${emp.entradaBase} - ${emp.salidaBase}</td>
+            <td class="py-2.5 px-3 text-slate-800">${formatBs(emp.haberBasico)}</td>
+            <td class="py-2.5 px-3">
+              <input type="number" min="0" max="30" value="${emp.faltas}"
+                onchange="actualizarFaltas(${emp.id}, this.value)"
+                class="w-16 px-2 py-1 rounded border border-slate-300 text-xs font-bold text-center bg-white" />
+            </td>
+            <td class="py-2.5 px-3 text-red-600 font-medium">-${formatBs(descuento)}</td>
+            <td class="py-2.5 px-3 font-bold text-slate-900">${formatBs(liquido)}</td>
+            <td class="py-2.5 px-3">
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${emp.pagado ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                ${emp.pagado ? 'Pagado' : 'Pendiente'}
+              </span>
+            </td>
+            <td class="py-2.5 px-3 text-right">
+              <button onclick="togglePagoPlanilla(${emp.id})"
+                class="text-xs font-semibold px-2.5 py-1 rounded-md border ${emp.pagado ? 'border-slate-300 text-slate-600 hover:bg-slate-100 bg-white' : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'}">
+                ${emp.pagado ? 'Revertir' : 'Marcar Pagado'}
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function actualizarFaltas(empId, faltas) {
+      const f = Math.max(0, Math.min(30, parseInt(faltas, 10) || 0));
+      const emp = state.planilla.find(e => e.id === empId);
+      emp.faltas = f;
+      logAudit('Planilla', `Actualizó faltas de ${emp.nombre} a ${f} día(s)`);
+      showToast(`Descuento recalculado para ${emp.nombre}.`);
+      renderAll();
+    }
+
+    function togglePagoPlanilla(empId) {
+      const emp = state.planilla.find(e => e.id === empId);
+      emp.pagado = !emp.pagado;
+      logAudit('Planilla', `Cambió estado de pago de ${emp.nombre} a ${emp.pagado ? 'PAGADO' : 'PENDIENTE'}`);
+      showToast(`Estado de pago actualizado para ${emp.nombre}.`);
+      renderAll();
+    }
+
+    // ==================== 5. USUARIOS ====================
+    function renderUsuarios() {
+      document.getElementById('tabla-usuarios').innerHTML = state.usuarios.map(u => `
+        <tr>
+          <td class="py-2.5 px-3 font-medium text-slate-900">${u.nombre}</td>
+          <td class="py-2.5 px-3 text-xs text-slate-600">${u.email}</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-800 text-xs font-semibold">${u.rol}</span></td>
+          <td class="py-2.5 px-3">
+            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${u.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
+              ${u.activo ? 'Activo' : 'Inactivo'}
+            </span>
+          </td>
+          <td class="py-2.5 px-3 text-right space-x-1">
+            <button onclick="editarUsuario(${u.id})" class="text-xs text-blue-600 hover:underline font-semibold">Editar</button>
+            <button onclick="toggleUsuarioActivo(${u.id})" class="text-xs text-slate-600 hover:underline font-semibold">
+              ${u.activo ? 'Desactivar' : 'Activar'}
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('form-usuario').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('usr-id').value;
+      const nombre = document.getElementById('usr-nombre').value.trim();
+      const email = document.getElementById('usr-email').value.trim().toLowerCase();
+      const password = document.getElementById('usr-password').value.trim();
+      const rol = document.getElementById('usr-rol').value;
+
+      if (!email || !password) {
+        showToast('Ingresa un correo y una contraseña válidos.', 'error');
+        return;
+      }
+
+      if (id) {
+        const u = state.usuarios.find(x => x.id === parseInt(id, 10));
+        Object.assign(u, { nombre, email, password, rol });
+        logAudit('Usuarios', `Editó cuenta de ${nombre} (${rol})`);
+        showToast('Usuario actualizado y guardado en Firestore.');
+      } else {
+        const existe = state.usuarios.find(x => String(x.email || '').trim().toLowerCase() === email);
+        if (existe) {
+          existe.nombre = nombre;
+          existe.password = password;
+          existe.rol = rol;
+          existe.activo = true;
+          logAudit('Usuarios', `Actualizó credenciales de ${email} (${rol})`);
+          showToast('El correo ya existía: se actualizaron sus datos y contraseña.');
+        } else {
+          state.usuarios.push({ id: Date.now(), nombre, email, password, rol, activo: true });
+          logAudit('Usuarios', `Creó nuevo usuario ${nombre} (${rol})`);
+          showToast('Usuario creado y guardado en Firestore.');
+        }
+      }
+      resetFormUsuario();
+      renderAll();
+    });
+
+    function editarUsuario(id) {
+      const u = state.usuarios.find(x => x.id === id);
+      document.getElementById('usr-id').value = u.id;
+      document.getElementById('usr-nombre').value = u.nombre;
+      document.getElementById('usr-email').value = u.email;
+      document.getElementById('usr-password').value = u.password;
+      document.getElementById('usr-rol').value = u.rol;
+    }
+
+    function resetFormUsuario() {
+      document.getElementById('form-usuario').reset();
+      document.getElementById('usr-id').value = '';
+    }
+
+    function toggleUsuarioActivo(id) {
+      if (state.currentUser.id === id) {
+        showToast('No puedes desactivar tu propio usuario en sesión.', 'error');
+        return;
+      }
+      const u = state.usuarios.find(x => x.id === id);
+      u.activo = !u.activo;
+      logAudit('Usuarios', `${u.activo ? 'Activó' : 'Desactivó'} la cuenta de ${u.nombre}`);
+      showToast(`Cuenta ${u.activo ? 'activada' : 'desactivada'}.`);
+      renderAll();
+    }
+
+    // ==================== 6. AUDITORÍA ====================
+    function renderAuditoria() {
+      document.getElementById('tabla-auditoria').innerHTML = state.auditoria.map(a => `
+        <tr>
+          <td class="py-2.5 px-3 text-xs font-mono text-slate-500">${a.fecha}</td>
+          <td class="py-2.5 px-3 text-xs font-semibold text-slate-900">${a.usuario}</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-semibold">${a.modulo}</span></td>
+          <td class="py-2.5 px-3 text-xs text-slate-700">${a.accion}</td>
+        </tr>
+      `).join('');
+    }
+
+    // ==================== IMPRESIÓN Y EXPORTACIÓN OFICIAL ====================
+    let lastReportTitle = 'Reporte_Salvietti';
+
+    function abrirVistaPreviaReporte(tipo, extraId = null) {
+      const now = new Date().toLocaleString('es-BO');
+      const emitente = state.currentUser ? `${state.currentUser.nombre} (${state.currentUser.rol})` : 'Sistema ERP';
+      let tituloDoc = '';
+      let cuerpoHTML = '';
+
+      if (tipo === 'kardex') {
+        tituloDoc = 'REPORTE OFICIAL DE MOVIMIENTOS DE ALMACÉN (KARDEX)';
+        lastReportTitle = 'Kardex_Almacen_Salvietti';
+        cuerpoHTML = `
+          <table class="w-full border-collapse text-xs mt-4">
+            <thead>
+              <tr class="bg-slate-100/90">
+                <th class="border border-slate-300 p-2 text-left">Fecha / Hora</th>
+                <th class="border border-slate-300 p-2 text-left">Tipo</th>
+                <th class="border border-slate-300 p-2 text-left">Producto</th>
+                <th class="border border-slate-300 p-2 text-right">Cantidad</th>
+                <th class="border border-slate-300 p-2 text-left">Motivo / Documento</th>
+                <th class="border border-slate-300 p-2 text-left">Responsable</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${state.kardex.map(m => `
+                <tr>
+                  <td class="border border-slate-300 p-2">${m.fecha}</td>
+                  <td class="border border-slate-300 p-2 font-bold">${m.tipo}</td>
+                  <td class="border border-slate-300 p-2">${m.producto}</td>
+                  <td class="border border-slate-300 p-2 text-right font-bold">${m.tipo === 'ENTRADA' ? '+' : '-'}${m.cantidad}</td>
+                  <td class="border border-slate-300 p-2">${m.motivo}</td>
+                  <td class="border border-slate-300 p-2">${m.responsable}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else if (tipo === 'asistencia') {
+        tituloDoc = 'REGISTRO OFICIAL DE ENTRADA Y SALIDA DE EMPLEADOS';
+        lastReportTitle = 'Asistencia_Empleados_Salvietti';
+        cuerpoHTML = `
+          <table class="w-full border-collapse text-xs mt-4">
+            <thead>
+              <tr class="bg-slate-100/90">
+                <th class="border border-slate-300 p-2 text-left">Fecha</th>
+                <th class="border border-slate-300 p-2 text-left">Empleado</th>
+                <th class="border border-slate-300 p-2 text-center">Hora Entrada</th>
+                <th class="border border-slate-300 p-2 text-center">Hora Salida</th>
+                <th class="border border-slate-300 p-2 text-left">Registrado por</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${state.asistencia.map(a => `
+                <tr>
+                  <td class="border border-slate-300 p-2">${a.fecha}</td>
+                  <td class="border border-slate-300 p-2 font-semibold">${a.empleadoNombre}</td>
+                  <td class="border border-slate-300 p-2 text-center">${a.horaEntrada || '—'}</td>
+                  <td class="border border-slate-300 p-2 text-center">${a.horaSalida || 'Pendiente'}</td>
+                  <td class="border border-slate-300 p-2">${a.registradoPor}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else if (tipo === 'planilla') {
+        tituloDoc = 'PLANILLA OFICIAL DE SUELDOS, ASISTENCIA Y DESCUENTOS';
+        lastReportTitle = 'Planilla_Pagos_Salvietti';
+        let totalNeto = 0;
+        cuerpoHTML = `
+          <table class="w-full border-collapse text-xs mt-4">
+            <thead>
+              <tr class="bg-slate-100/90">
+                <th class="border border-slate-300 p-2 text-left">Trabajador</th>
+                <th class="border border-slate-300 p-2 text-left">Cargo</th>
+                <th class="border border-slate-300 p-2 text-center">Turno</th>
+                <th class="border border-slate-300 p-2 text-right">Haber Básico</th>
+                <th class="border border-slate-300 p-2 text-center">Faltas</th>
+                <th class="border border-slate-300 p-2 text-right">Descuento</th>
+                <th class="border border-slate-300 p-2 text-right">Líquido Pagable</th>
+                <th class="border border-slate-300 p-2 text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${state.planilla.map(emp => {
+                const desc = (emp.haberBasico / 30) * emp.faltas;
+                const liq = emp.haberBasico - desc;
+                totalNeto += liq;
+                return `
+                  <tr>
+                    <td class="border border-slate-300 p-2 font-semibold">${emp.nombre}</td>
+                    <td class="border border-slate-300 p-2">${emp.cargo}</td>
+                    <td class="border border-slate-300 p-2 text-center">${emp.entradaBase} - ${emp.salidaBase}</td>
+                    <td class="border border-slate-300 p-2 text-right">${formatBs(emp.haberBasico)}</td>
+                    <td class="border border-slate-300 p-2 text-center">${emp.faltas}</td>
+                    <td class="border border-slate-300 p-2 text-right">-${formatBs(desc)}</td>
+                    <td class="border border-slate-300 p-2 text-right font-bold">${formatBs(liq)}</td>
+                    <td class="border border-slate-300 p-2 text-center">${emp.pagado ? 'PAGADO' : 'PENDIENTE'}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+            <tfoot>
+              <tr class="bg-slate-100/90 font-bold">
+                <td colspan="6" class="border border-slate-300 p-2 text-right">TOTAL PLANILLA LÍQUIDA:</td>
+                <td class="border border-slate-300 p-2 text-right">${formatBs(totalNeto)}</td>
+                <td class="border border-slate-300 p-2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        `;
+      } else if (tipo === 'cliente') {
+        const cli = state.clientes.find(c => c.id === extraId);
+        const compras = state.ventas.filter(v => v.clienteId === extraId);
+        const total = compras.reduce((s, v) => s + v.total, 0);
+        tituloDoc = 'ESTADO DE CUENTA E HISTORIAL DE COMPRAS DE CLIENTE';
+        lastReportTitle = `Historial_${cli.nombre.replace(/\s+/g, '_')}`;
+        cuerpoHTML = `
+          <div class="mt-4 p-3 bg-slate-50/90 border border-slate-300 rounded text-xs grid grid-cols-2 gap-2">
+            <div><strong>Cliente / Razón Social:</strong> ${cli.nombre}</div>
+            <div><strong>${cli.tipoDoc}:</strong> ${cli.documento}</div>
+            <div><strong>Dirección / Zona:</strong> ${cli.zona}</div>
+            <div><strong>Teléfono:</strong> ${cli.telefono}</div>
+          </div>
+          <table class="w-full border-collapse text-xs mt-4">
+            <thead>
+              <tr class="bg-slate-100/90">
+                <th class="border border-slate-300 p-2 text-left">N° Pedido</th>
+                <th class="border border-slate-300 p-2 text-left">Fecha</th>
+                <th class="border border-slate-300 p-2 text-left">Producto</th>
+                <th class="border border-slate-300 p-2 text-right">Cantidad</th>
+                <th class="border border-slate-300 p-2 text-right">Monto (Bs.)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${compras.length === 0
+                ? `<tr><td colspan="5" class="border border-slate-300 p-3 text-center">Sin compras registradas en el periodo.</td></tr>`
+                : compras.map(v => {
+                    const prod = state.productos.find(p => p.id === v.productoId);
+                    return `
+                      <tr>
+                        <td class="border border-slate-300 p-2 font-mono">${v.id}</td>
+                        <td class="border border-slate-300 p-2">${v.fecha}</td>
+                        <td class="border border-slate-300 p-2">${prod ? prod.nombre : v.productoId}</td>
+                        <td class="border border-slate-300 p-2 text-right">${v.cantidad}</td>
+                        <td class="border border-slate-300 p-2 text-right font-semibold">${formatBs(v.total)}</td>
+                      </tr>
+                    `;
+                  }).join('')
+              }
+            </tbody>
+            <tfoot>
+              <tr class="bg-slate-100/90 font-bold">
+                <td colspan="4" class="border border-slate-300 p-2 text-right">TOTAL HISTÓRICO FACTURADO:</td>
+                <td class="border border-slate-300 p-2 text-right">${formatBs(total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        `;
+      } else if (tipo === 'ventas_general') {
+        tituloDoc = 'REPORTE CONSOLIDADO DE VENTAS — PLANTA SUCRE';
+        lastReportTitle = 'Reporte_Ventas_Salvietti';
+        const total = state.ventas.reduce((s, v) => s + v.total, 0);
+        cuerpoHTML = `
+          <table class="w-full border-collapse text-xs mt-4">
+            <thead>
+              <tr class="bg-slate-100/90">
+                <th class="border border-slate-300 p-2 text-left">Pedido</th>
+                <th class="border border-slate-300 p-2 text-left">Fecha</th>
+                <th class="border border-slate-300 p-2 text-left">Cliente</th>
+                <th class="border border-slate-300 p-2 text-left">Producto</th>
+                <th class="border border-slate-300 p-2 text-right">Cant.</th>
+                <th class="border border-slate-300 p-2 text-right">Total (Bs.)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${state.ventas.map(v => {
+                const cli = state.clientes.find(c => c.id === v.clienteId);
+                const prod = state.productos.find(p => p.id === v.productoId);
+                return `
+                  <tr>
+                    <td class="border border-slate-300 p-2 font-mono">${v.id}</td>
+                    <td class="border border-slate-300 p-2">${v.fecha}</td>
+                    <td class="border border-slate-300 p-2">${cli ? cli.nombre : v.clienteId}</td>
+                    <td class="border border-slate-300 p-2">${prod ? prod.nombre : v.productoId}</td>
+                    <td class="border border-slate-300 p-2 text-right">${v.cantidad}</td>
+                    <td class="border border-slate-300 p-2 text-right font-semibold">${formatBs(v.total)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+            <tfoot>
+              <tr class="bg-slate-100/90 font-bold">
+                <td colspan="5" class="border border-slate-300 p-2 text-right">TOTAL INGRESOS POR VENTAS:</td>
+                <td class="border border-slate-300 p-2 text-right">${formatBs(total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        `;
+      }
+
+      const printArea = document.getElementById('print-area');
+      printArea.innerHTML = `
+        <div class="print-watermark-bg" aria-hidden="true">
+          <img data-salvietti-logo alt="" />
+        </div>
+        <div class="print-content-layer">
+          <div class="border-b-2 border-slate-900 pb-4 flex justify-between items-start gap-4">
+            <div class="flex items-center gap-3">
+              <img data-salvietti-logo alt="Logo Salvietti" class="w-16 h-12 object-contain shrink-0" />
+              <div>
+                <h1 class="text-lg font-bold tracking-tight text-slate-900">EMBOTELLADORA SALVIETTI S.A.</h1>
+                <p class="text-xs text-slate-600">Planta Industrial Sucre • Chuquisaca, Bolivia</p>
+                <p class="text-xs font-bold text-emerald-800 mt-1.5">${tituloDoc}</p>
+              </div>
+            </div>
+            <div class="text-right text-[11px] text-slate-600 shrink-0">
+              <p><strong>Fecha de Emisión:</strong> ${now}</p>
+              <p><strong>Emitido por:</strong> ${emitente}</p>
+              <p><strong>Documento Controlado ERP</strong></p>
+            </div>
+          </div>
+          ${cuerpoHTML}
+          <div class="mt-12 pt-6 grid grid-cols-2 gap-8 text-center text-xs text-slate-700">
+            <div>
+              <div class="border-t border-slate-400 w-48 mx-auto pt-1">Firma Responsable de Área</div>
+            </div>
+            <div>
+              <div class="border-t border-slate-400 w-48 mx-auto pt-1">V°B° Administración / Auditoría</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      aplicarLogosSalvietti(printArea);
+      logAudit('Reportes', `Generó vista de impresión: ${tituloDoc}`);
+      document.getElementById('modal-print').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function cerrarModalPrint() {
+      document.getElementById('modal-print').classList.add('hidden');
+    }
+
+    function ejecutarImpresionNativa() {
+      window.print();
+    }
+
+    function descargarReporteHTML() {
+      const contenido = document.getElementById('print-area').innerHTML;
+      const htmlCompleto = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${lastReportTitle}</title><script src="https://cdn.tailwindcss.com"><\/script><style>.print-watermark-bg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0;opacity:0.08;}.print-watermark-bg img{width:380px;height:auto;object-fit:contain;}.print-content-layer{position:relative;z-index:1;}</style></head><body class="p-8 bg-white text-slate-900" onload="window.print()">${contenido}</body></html>`;
+      const blob = new Blob([htmlCompleto], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${lastReportTitle}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Reporte descargado. Ábrelo en tu navegador para imprimir o guardar como PDF.');
+    }
+
+    aplicarLogosSalvietti();
+    iniciarEscuchaFirestore();
+    if (state.currentUser) {
+      iniciarSesionUI();
+    } else {
+      lucide.createIcons();
+    }
+  </script>
+</body>
+</html>
